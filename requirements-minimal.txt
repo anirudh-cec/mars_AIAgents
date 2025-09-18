@@ -1,0 +1,14 @@
+# Mars AI Agents - Core Dependencies
+# Install with: pip install -r requirements-minimal.txt
+
+# FastAPI and server
+fastapi>=0.116.0
+uvicorn[standard]>=0.35.0
+
+# Google Gmail API
+google-auth>=2.40.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.182.0
+
+# Environment management
+python-dotenv>=1.1.0

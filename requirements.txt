@@ -1,0 +1,19 @@
+# Mars AI Agents - Python Dependencies
+# Gmail API Integration and FastAPI Backend Requirements
+
+# Core FastAPI framework and server
+fastapi>=0.116.0
+uvicorn[standard]>=0.35.0
+
+# Google API dependencies for Gmail integration
+google-auth>=2.40.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.182.0
+
+# Environment variable management
+python-dotenv>=1.1.0
+
+### Langgraph
+Langgraph
+dotenv

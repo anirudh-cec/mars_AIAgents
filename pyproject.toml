@@ -1,0 +1,27 @@
+[project]
+name = "mars-aiagents"
+version = "0.1.0"
+description = "Mars AI Agents - Gmail integration and processing system with FastAPI backend and React frontend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.116.0",
+    "uvicorn[standard]>=0.35.0",
+    "google-auth>=2.40.0",
+    "google-auth-oauthlib>=1.2.0",
+    "google-api-python-client>=2.182.0",
+    "python-dotenv>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+start-dev = "mars_aiagents.start_dev:main"
+api-server = "mars_aiagents.api_server:main"
+gmail-processor = "mars_aiagents.get_data:main"
