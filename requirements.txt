@@ -14,6 +14,16 @@ google-api-python-client>=2.182.0
 # Environment variable management
 python-dotenv>=1.1.0
 
-### Langgraph
-Langgraph
+# LangGraph and LangChain dependencies
+langgraph>=0.6.0
+langchain-core>=0.3.0
+langchain-openai>=0.1.0
+langgraph-checkpoint>=2.1.0
+
+# Additional dependencies
 dotenv
+openai>=1.0.0
+
+# PDF processing dependencies
+PyPDF2>=3.0.0
+pymupdf>=1.26.0

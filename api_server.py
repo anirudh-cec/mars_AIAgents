@@ -17,7 +17,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Import our Gmail data retrieval module
-from .get_data import process_gmail_data
+from get_data import process_gmail_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +64,24 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     service: str
+
+class InvoiceDataRequest(BaseModel):
+    """Request model for invoice data extraction"""
+    document_path: str
+
+class InvoiceDataResponse(BaseModel):
+    """Response model for extracted invoice data"""
+    success: bool
+    invoice_number: Optional[str] = None
+    order_number: Optional[str] = None
+    error: Optional[str] = None
+    timestamp: str
+
+class UpdateInvoiceDataRequest(BaseModel):
+    """Request model for updating invoice data"""
+    document_path: str
+    invoice_number: str
+    order_number: str
 
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)
@@ -211,6 +229,153 @@ async def get_configuration():
         "version": "1.0.0",
         "timestamp": datetime.now().isoformat()
     }
+
+# Invoice data extraction endpoint
+@app.post("/api/extract-invoice-data", response_model=InvoiceDataResponse)
+async def extract_invoice_data(request: InvoiceDataRequest):
+    """
+    Extract invoice number and order number from document using LangGraph
+    
+    Args:
+        request: Document path for extraction
+        
+    Returns:
+        InvoiceDataResponse with extracted data
+    """
+    logger.info(f"Invoice data extraction requested for: {request.document_path}")
+    
+    try:
+        # Import here to avoid circular imports
+        from orchestrator.langgraph_orchestrator import workflow, AgenticState
+        
+        # Check if document exists
+        if not os.path.exists(request.document_path):
+            return InvoiceDataResponse(
+                success=False,
+                error="Document not found",
+                timestamp=datetime.now().isoformat()
+            )
+        
+        # Create initial state
+        initial_state = {
+            'attachment': os.path.basename(request.document_path),
+            'data_folder': os.path.dirname(request.document_path)
+        }
+        
+        # Run the workflow
+        result_state = await asyncio.get_event_loop().run_in_executor(
+            None, 
+            lambda: workflow.invoke(initial_state)
+        )
+        
+        # Return extracted data
+        return InvoiceDataResponse(
+            success=True,
+            invoice_number=result_state.get('invoice_number', ''),
+            order_number=result_state.get('order_number', ''),
+            timestamp=datetime.now().isoformat()
+        )
+        
+    except Exception as e:
+        logger.error(f"Error extracting invoice data: {str(e)}")
+        return InvoiceDataResponse(
+            success=False,
+            error=str(e),
+            timestamp=datetime.now().isoformat()
+        )
+
+# Update invoice data endpoint
+@app.post("/api/update-invoice-data")
+async def update_invoice_data(request: UpdateInvoiceDataRequest):
+    """
+    Update invoice data in application state
+    
+    Args:
+        request: Updated invoice data
+        
+    Returns:
+        Success/error response
+    """
+    logger.info(f"Invoice data update requested for: {request.document_path}")
+    
+    try:
+        # For now, we'll store the updated data in memory
+        # In a production system, you might want to store this in a database
+        global invoice_data_cache
+        if 'invoice_data_cache' not in globals():
+            invoice_data_cache = {}
+        
+        invoice_data_cache[request.document_path] = {
+            'invoice_number': request.invoice_number,
+            'order_number': request.order_number,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        logger.info(f"Updated invoice data for {request.document_path}")
+        
+        return {
+            "success": True,
+            "message": "Invoice data updated successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating invoice data: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+
+# Get current invoice data endpoint
+@app.get("/api/invoice-data/{document_name}")
+async def get_invoice_data(document_name: str):
+    """
+    Get current invoice data for a document
+    
+    Args:
+        document_name: Name of the document
+        
+    Returns:
+        Current invoice data or cached updates
+    """
+    try:
+        document_path = os.path.join("data", document_name)
+        
+        # Check if we have cached updates
+        global invoice_data_cache
+        if 'invoice_data_cache' in globals() and document_path in invoice_data_cache:
+            cached_data = invoice_data_cache[document_path]
+            return {
+                "success": True,
+                "invoice_number": cached_data['invoice_number'],
+                "order_number": cached_data['order_number'],
+                "from_cache": True,
+                "updated_at": cached_data['updated_at'],
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # If no cached data, return empty values
+        return {
+            "success": True,
+            "invoice_number": "",
+            "order_number": "",
+            "from_cache": False,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
 
 # Error handlers
 @app.exception_handler(404)

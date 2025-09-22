@@ -196,11 +196,8 @@ class GmailDataRetriever:
             if not message:
                 return downloaded_files
             
-            # Get message timestamp for folder organization
-            timestamp = int(message['internalDate']) / 1000
-            date_folder = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
-            download_path = os.path.join(self.data_folder, date_folder)
-            os.makedirs(download_path, exist_ok=True)
+            # Save files directly in data folder (no date subfolders)
+            download_path = self.data_folder
             
             # Process message parts to find attachments
             parts = self._get_message_parts(message)
@@ -221,13 +218,20 @@ class GmailDataRetriever:
                     file_data = base64.urlsafe_b64decode(attachment['data'])
                     file_path = os.path.join(download_path, filename)
                     
-                    # Handle duplicate filenames
-                    counter = 1
-                    base_name, extension = os.path.splitext(filename)
-                    while os.path.exists(file_path):
-                        new_filename = f"{base_name}_{counter}{extension}"
-                        file_path = os.path.join(download_path, new_filename)
-                        counter += 1
+                    # Handle duplicate filenames with timestamp
+                    if os.path.exists(file_path):
+                        timestamp = int(message['internalDate']) / 1000
+                        time_str = datetime.fromtimestamp(timestamp).strftime('%Y%m%d_%H%M%S')
+                        base_name, extension = os.path.splitext(filename)
+                        filename = f"{base_name}_{time_str}{extension}"
+                        file_path = os.path.join(download_path, filename)
+                        
+                        # If still duplicate, add counter
+                        counter = 1
+                        while os.path.exists(file_path):
+                            new_filename = f"{base_name}_{time_str}_{counter}{extension}"
+                            file_path = os.path.join(download_path, new_filename)
+                            counter += 1
                     
                     with open(file_path, 'wb') as f:
                         f.write(file_data)

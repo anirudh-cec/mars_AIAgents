@@ -6,6 +6,14 @@ const DocumentViewer = ({ documentPath, onBack }) => {
   const [documentType, setDocumentType] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Invoice data states
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [extractionError, setExtractionError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     if (documentPath) {
@@ -14,13 +22,85 @@ const DocumentViewer = ({ documentPath, onBack }) => {
       setDocumentType(extension);
       
       // Create document URL for serving
-      // Convert path like "data/2025-09-18/file.pdf" to "http://localhost:8000/documents/2025-09-18/file.pdf"
+      // Convert path like "data/file.pdf" to "http://localhost:8000/documents/file.pdf"
       const relativePath = documentPath.replace('data/', '');
       const url = `http://localhost:8000/documents/${relativePath}`;
       setDocumentUrl(url);
       setLoading(false);
     }
+    // Extract invoice data when document is loaded
+    if (documentPath) {
+      extractInvoiceData();
+    }
   }, [documentPath]);
+
+  const extractInvoiceData = async () => {
+    setExtracting(true);
+    setExtractionError(null);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/extract-invoice-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_path: documentPath
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setInvoiceNumber(data.invoice_number || '');
+        setOrderNumber(data.order_number || '');
+      } else {
+        setExtractionError(data.error || 'Failed to extract invoice data');
+      }
+    } catch (error) {
+      console.error('Error extracting invoice data:', error);
+      setExtractionError('Network error occurred while extracting data');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/update-invoice-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_path: documentPath,
+          invoice_number: invoiceNumber,
+          order_number: orderNumber
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setLastUpdated(new Date().toLocaleString());
+        alert('Invoice data updated successfully!');
+      } else {
+        alert('Failed to update invoice data: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating invoice data:', error);
+      alert('Network error occurred while updating data');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    // Placeholder for submit functionality - you'll implement this later
+    alert('Submit functionality will be implemented later!');
+  };
 
   const renderDocument = () => {
     if (loading) {
@@ -137,16 +217,78 @@ const DocumentViewer = ({ documentPath, onBack }) => {
         </div>
 
         <div className="document-right-panel">
-          <div className="right-panel-placeholder">
-            <div className="placeholder-content">
-              <h3>Analysis Panel</h3>
-              <p>This panel will be used for document analysis and processing.</p>
-              <div className="placeholder-features">
-                <div className="feature-item">📊 Document Analysis</div>
-                <div className="feature-item">🤖 AI Processing</div>
-                <div className="feature-item">📝 Text Extraction</div>
-                <div className="feature-item">🔍 Content Search</div>
+          <div className="invoice-data-panel">
+            <div className="panel-header">
+              <h3>📄 Invoice Data</h3>
+              {extracting && <div className="extraction-status">🔄 Extracting data...</div>}
+              {lastUpdated && (
+                <div className="last-updated">✅ Updated: {lastUpdated}</div>
+              )}
+            </div>
+
+            {extractionError && (
+              <div className="extraction-error">
+                <p>❌ {extractionError}</p>
+                <button 
+                  onClick={extractInvoiceData} 
+                  className="retry-btn"
+                  disabled={extracting}
+                >
+                  🔄 Retry Extraction
+                </button>
               </div>
+            )}
+
+            <div className="invoice-fields">
+              <div className="field-group">
+                <label htmlFor="invoice-number">Invoice Number:</label>
+                <input
+                  id="invoice-number"
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Enter invoice number"
+                  disabled={extracting}
+                  className="invoice-input"
+                />
+              </div>
+
+              <div className="field-group">
+                <label htmlFor="order-number">Order Number:</label>
+                <input
+                  id="order-number"
+                  type="text"
+                  value={orderNumber}
+                  onChange={(e) => setOrderNumber(e.target.value)}
+                  placeholder="Enter order number"
+                  disabled={extracting}
+                  className="invoice-input"
+                />
+              </div>
+            </div>
+
+            <div className="action-buttons">
+              <button 
+                onClick={handleUpdate}
+                disabled={updating || extracting}
+                className="update-btn"
+              >
+                {updating ? '⏳ Updating...' : '📝 Update'}
+              </button>
+              
+              <button 
+                onClick={handleSubmit}
+                disabled={updating || extracting || !invoiceNumber || !orderNumber}
+                className="submit-btn"
+              >
+                ✅ Submit
+              </button>
+            </div>
+
+            <div className="panel-info">
+              <p className="info-text">
+                💡 Data is extracted automatically using AI. You can edit the fields above and click "Update" to save changes.
+              </p>
             </div>
           </div>
         </div>
